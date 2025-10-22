@@ -546,7 +546,7 @@ const API = {
         }
     },
 
-    getRadarPlaylist: async (playlistId = "3778678", options = {}) => {
+    getRadarPlaylist: async (playlistId = "3779629", options = {}) => {
         const signature = API.generateSignature();
 
         let limit = 50;
@@ -3941,7 +3941,7 @@ async function exploreOnlineMusic() {
         btnText.style.display = "none";
         loader.style.display = "inline-block";
 
-        const songs = await API.getRadarPlaylist("3778678", { limit: 50, offset: 0 });
+        const songs = await API.getRadarPlaylist("3779629", { limit: 50, offset: 0 });
 
         if (songs.length > 0) {
             // 将在线音乐添加到统一播放列表
