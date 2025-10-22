@@ -2,9 +2,10 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Solara</title>
     <meta name="apple-mobile-web-app-title" content="Solara">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
     <link rel="shortcut icon" href="/favicon.png">
@@ -55,16 +56,159 @@
                 applyBodyClass();
             }
 
-            window.addEventListener("resize", setViewportUnit);
-            window.addEventListener("orientationchange", setViewportUnit);
+            const debouncedSetViewportUnit = () => {
+                clearTimeout(window.__viewportTimeout);
+                window.__viewportTimeout = setTimeout(setViewportUnit, 100);
+            };
+
+            window.addEventListener("resize", debouncedSetViewportUnit);
+            window.addEventListener("orientationchange", debouncedSetViewportUnit);
             if (window.visualViewport) {
-                window.visualViewport.addEventListener("resize", setViewportUnit);
-                window.visualViewport.addEventListener("scroll", setViewportUnit);
+                window.visualViewport.addEventListener("resize", debouncedSetViewportUnit);
+                window.visualViewport.addEventListener("scroll", debouncedSetViewportUnit);
             }
 
             setViewportUnit();
         })();
     </script>
+    <style>
+        :root {
+            --mobile-vh: 100vh;
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-inset-left: env(safe-area-inset-left, 0px);
+            --safe-area-inset-right: env(safe-area-inset-right, 0px);
+        }
+
+        .mobile-view .container {
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: calc(12px + var(--safe-area-inset-bottom));
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+            min-height: var(--mobile-vh);
+            box-sizing: border-box;
+        }
+
+        .mobile-view .mobile-toolbar {
+            padding-top: calc(12px + var(--safe-area-inset-top));
+            padding-bottom: 12px;
+        }
+
+        .mobile-view .controls {
+            padding-top: 12px;
+            padding-bottom: calc(12px + var(--safe-area-inset-bottom));
+            position: sticky;
+            bottom: calc(12px + var(--safe-area-inset-bottom));
+            background: inherit;
+            z-index: 10;
+        }
+
+        .mobile-view .mobile-panel {
+            padding-top: calc(12px + var(--safe-area-inset-top));
+            padding-bottom: calc(12px + var(--safe-area-inset-bottom));
+        }
+
+        .mobile-view .mobile-toolbar__button,
+        .mobile-view .transport-button,
+        .mobile-view .mobile-panel-action-btn,
+        .mobile-view .search-btn,
+        .mobile-view .mobile-close-btn {
+            min-width: 48px;
+            min-height: 48px;
+            font-size: 1.2rem;
+            touch-action: manipulation;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .mobile-view .transport-button--play {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mobile-view .search-input {
+            font-size: 0.95rem;
+            padding: 8px 12px;
+            height: 44px;
+            border-radius: 8px;
+        }
+
+        .mobile-view .search-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .mobile-view .album-cover {
+            width: 80vw;
+            max-width: 280px;
+            height: auto;
+            margin: 0 auto;
+        }
+
+        .mobile-view .current-song-info {
+            text-align: center;
+            padding: 8px 12px;
+        }
+
+        .mobile-view .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+        }
+
+        .mobile-view #progressBar {
+            flex-grow: 1;
+            height: 8px;
+        }
+
+        @media (max-width: 375px) {
+            .mobile-view .mobile-toolbar__title {
+                font-size: 1.1rem;
+            }
+
+            .mobile-view .current-song-title {
+                font-size: 1rem;
+            }
+
+            .mobile-view .current-song-artist {
+                font-size: 0.85rem;
+            }
+
+            .mobile-view .album-cover {
+                width: 70vw;
+                max-width: 240px;
+            }
+
+            .mobile-view .search-input {
+                font-size: 0.9rem;
+            }
+
+            .mobile-view .mobile-panel-title {
+                font-size: 0.95rem;
+            }
+
+            .mobile-view .transport-button {
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 1.1rem;
+            }
+
+            .mobile-view .transport-button--play {
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="background-stage" id="backgroundStage" aria-hidden="true">
@@ -99,7 +243,7 @@
                 <i class="fas fa-times" aria-hidden="true"></i>
             </button>
             <div class="search-container">
-                <input type="text" id="searchInput" class="search-input" placeholder="搜索歌曲、歌手或专辑...">
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索歌曲、歌手或专辑..." aria-label="搜索歌曲、歌手或专辑">
                 <div class="source-select-wrapper" id="sourceSelectWrapper">
                     <button id="sourceSelectButton" class="source-select-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
                         <span id="sourceSelectLabel">网易云音乐</span>
@@ -107,14 +251,14 @@
                     </button>
                     <div id="sourceMenu" class="source-menu" role="listbox" aria-labelledby="sourceSelectButton"></div>
                 </div>
-                <button id="searchBtn" class="search-btn">
-                    <i class="fas fa-search"></i>
+                <button id="searchBtn" class="search-btn" aria-label="搜索">
+                    <i class="fas fa-search" aria-hidden="true"></i>
                     <span>搜索</span>
                 </button>
             </div>
             <div id="searchResults" class="search-results">
                 <div class="search-results-toolbar">
-                    <button id="importSelectedBtn" class="import-selected-btn" type="button" disabled>
+                    <button id="importSelectedBtn" class="import-selected-btn" type="button" disabled aria-label="导入已选歌曲">
                         <i class="fas fa-file-import" aria-hidden="true"></i>
                         <span class="import-selected-label">导入已选</span>
                         <span id="importSelectedCount" class="import-selected-count" aria-hidden="true"></span>
@@ -147,7 +291,7 @@
                 <div class="current-song-info">
                     <div class="current-song-title" id="currentSongTitle">选择一首歌曲开始播放</div>
                     <div class="current-song-artist" id="currentSongArtist">未知艺术家</div>
-                    <button class="mobile-quality-chip" id="mobileQualityToggle" type="button" aria-haspopup="menu" aria-expanded="false">
+                    <button class="mobile-quality-chip" id="mobileQualityToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="选择音质">
                         <span id="mobileQualityLabel">极高音质</span>
                         <i class="fas fa-chevron-down" aria-hidden="true"></i>
                     </button>
@@ -252,32 +396,32 @@
 
         <div class="controls">
             <div class="transport-controls">
-                <button class="play-mode-btn transport-button transport-button--mode" id="playModeBtn" type="button" title="播放模式">
+                <button class="play-mode-btn transport-button transport-button--mode" id="playModeBtn" type="button" title="播放模式" aria-label="切换播放模式">
                     <i class="fas fa-repeat"></i>
                 </button>
-                <button class="transport-button transport-button--prev" onclick="playPrevious()" type="button" title="上一曲"><i class="fas fa-backward-step"></i></button>
-                <button class="transport-button transport-button--play" id="playPauseBtn" type="button" title="播放 / 暂停"><i class="fas fa-play"></i></button>
-                <button class="transport-button transport-button--next" onclick="playNext()" type="button" title="下一曲"><i class="fas fa-forward-step"></i></button>
+                <button class="transport-button transport-button--prev" onclick="playPrevious()" type="button" title="上一曲" aria-label="播放上一曲"><i class="fas fa-backward-step"></i></button>
+                <button class="transport-button transport-button--play" id="playPauseBtn" type="button" title="播放 / 暂停" aria-label="播放或暂停"><i class="fas fa-play"></i></button>
+                <button class="transport-button transport-button--next" onclick="playNext()" type="button" title="下一曲" aria-label="播放下一曲"><i class="fas fa-forward-step"></i></button>
                 <button class="transport-button transport-button--queue" id="mobileQueueToggle" type="button" title="打开播放列表" aria-label="打开播放列表"><i class="fas fa-bars"></i></button>
             </div>
             <div class="progress-container">
-                <span id="currentTimeDisplay">00:00</span>
-                <input type="range" id="progressBar" min="0" max="0" step="0.1" value="0">
-                <span id="durationDisplay">00:00</span>
+                <span id="currentTimeDisplay" aria-label="当前播放时间">00:00</span>
+                <input type="range" id="progressBar" min="0" max="0" step="0.1" value="0" aria-label="播放进度">
+                <span id="durationDisplay" aria-label="歌曲总时长">00:00</span>
             </div>
             <div class="audio-tools">
                 <div class="player-quality">
-                    <button id="qualityToggle" class="player-quality-btn" type="button">
+                    <button id="qualityToggle" class="player-quality-btn" type="button" aria-label="选择音质">
                         <span id="qualityLabel">极高音质</span>
                     </button>
                     <div id="playerQualityMenu" class="player-quality-menu"></div>
                 </div>
                 <div class="volume-container">
-                    <i id="volumeIcon" class="fas fa-volume-up"></i>
-                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8">
+                    <i id="volumeIcon" class="fas fa-volume-up" aria-hidden="true"></i>
+                    <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8" aria-label="音量调节">
                 </div>
             </div>
-            <button id="loadOnlineBtn" title="聚合所有雷达，探索新音乐">
+            <button id="loadOnlineBtn" title="聚合所有雷达，探索新音乐" aria-label="探索新音乐">
                 <span class="btn-text"><i class="fas fa-satellite-dish"></i> 探索雷达</span>
                 <span class="loader" style="display: none;"></span>
             </button>
@@ -288,22 +432,20 @@
 
     <audio id="audioPlayer" preload="metadata" playsinline></audio>
 
-<!-- 通知容器 -->
-<div id="notification" class="notification"></div>
+    <div id="notification" class="notification"></div>
 
-<!-- 调试信息容器 -->
-<div id="debugInfo" class="debug-info"></div>
+    <div id="debugInfo" class="debug-info"></div>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="js/index.js"></script>
-<script>
-    if (window.__SOLARA_IS_MOBILE) {
-        const mobileScript = document.createElement('script');
-        mobileScript.src = 'js/mobile.js';
-        mobileScript.async = false;
-        mobileScript.defer = false;
-        document.body.appendChild(mobileScript);
-    }
-</script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
+    <script src="js/index.js" defer></script>
+    <script>
+        if (window.__SOLARA_IS_MOBILE) {
+            const mobileScript = document.createElement('script');
+            mobileScript.src = 'js/mobile.js';
+            mobileScript.async = false;
+            mobileScript.defer = true;
+            document.body.appendChild(mobileScript);
+        }
+    </script>
 </body>
 </html>
