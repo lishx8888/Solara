@@ -16,8 +16,8 @@ body.mobile-view {
     min-height: var(--mobile-vh, 100dvh);
     display: flex;
     justify-content: center;
-    align-items: stretch;
-    padding: calc(env(safe-area-inset-top) + 12px) clamp(12px, 5vw, 24px) calc(env(safe-area-inset-bottom) + 20px);
+    align-items: center; /* 居中.container，确保上下圆角不溢出 */
+    padding: calc(env(safe-area-inset-top) + 8px) 8px calc(env(safe-area-inset-bottom) + 8px) 8px; /* 上下左右边距均为2px + 安全区域 */
     font-family: var(--font-main);
     background-attachment: fixed;
     box-sizing: border-box;
@@ -80,8 +80,8 @@ body.mobile-view .container {
     background: linear-gradient(180deg, rgba(27, 29, 36, 0.92), rgba(7, 9, 14, 0.95));
     border-radius: 32px;
     padding: clamp(16px, 5vw, 28px);
-    padding-top: calc(env(safe-area-inset-top) + clamp(18px, 6vw, 32px));
-    padding-bottom: calc(env(safe-area-inset-bottom) + clamp(22px, 7vw, 32px));
+    padding-top: clamp(18px, 6vw, 32px);
+    padding-bottom: clamp(22px, 7vw, 32px);
     box-shadow: 0 32px 90px rgba(0, 0, 0, 0.65);
     display: flex;
     flex-direction: column;
@@ -89,7 +89,10 @@ body.mobile-view .container {
     position: relative;
     overflow: visible;
     flex: 1 1 auto;
-    min-height: calc(var(--mobile-vh, 100dvh) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: calc(100% - 4px); /* 减去上下margin 2px * 2 */
+    height: calc(100% - 4px); /* 填充可用空间，确保圆角可见 */
+    margin-top: 2px; /* 最小化顶部边距 */
+    margin-bottom: 2px; /* 最小化底部边距 */
     box-sizing: border-box;
 }
 
@@ -403,10 +406,14 @@ body.mobile-view .controls {
     border: none;
     box-shadow: none;
     margin: 0;
-    padding: 0;
+    padding: clamp(12px, 4vw, 24px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
     gap: clamp(16px, 5vw, 24px);
     align-items: stretch;
     margin-top: auto;
+    position: sticky;
+    bottom: calc(env(safe-area-inset-bottom) + 24px);
+    z-index: 10;
 }
 
 body.mobile-view #loadOnlineBtn {
@@ -459,7 +466,6 @@ body.mobile-view .transport-controls {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: clamp(12px, 5vw, 18px);
 }
 
 body.mobile-view .transport-button {
@@ -486,6 +492,7 @@ body.mobile-view .transport-button i {
 body.mobile-view .transport-button--play {
     width: clamp(60px, 18vw, 70px);
     height: clamp(60px, 18vw, 70px);
+    border-radius: 50%;
     background: linear-gradient(135deg, #f36d6d 0%, #f3a25b 100%);
     color: #1f1b1d;
     box-shadow: 0 18px 36px rgba(243, 117, 109, 0.45);
@@ -777,7 +784,7 @@ body.mobile-view .search-area {
     transform: translateY(-100%);
     transition: transform 0.45s cubic-bezier(0.33, 1, 0.68, 1);
     z-index: 160;
-    padding: calc(env(safe-area-inset-top) + 28px) clamp(18px, 6vw, 28px) clamp(env(safe-area-inset-bottom) + 24px, 8vw, 36px);
+    padding: calc(env(safe-area-inset-top) + 28px) clamp(18px, 6vw, 28px) calc(env(safe-area-inset-bottom) + 24px);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -819,21 +826,6 @@ body.mobile-view .import-selected-btn {
 body.mobile-view .search-results-list {
     width: min(100%, 340px);
     margin: 0 auto;
-}
-
-body.mobile-view .search-area > :not(.mobile-close-btn) {
-    width: min(100%, 360px);
-    align-self: center;
-}
-
-body.mobile-view .search-area > :not(.mobile-close-btn) {
-    width: min(100%, 340px);
-    align-self: center;
-}
-
-body.mobile-view .search-area > :not(.mobile-close-btn) {
-    width: min(100%, 340px);
-    align-self: center;
 }
 
 body.mobile-view .search-area > :not(.mobile-close-btn) {
@@ -906,4 +898,50 @@ body.mobile-view #notification.show {
 
 body.mobile-view .debug-info {
     display: none;
+}
+
+@media (max-width: 375px) {
+    body.mobile-view .mobile-toolbar__title {
+        font-size: 1rem;
+    }
+
+    body.mobile-view .current-song-title {
+        font-size: 1rem;
+    }
+
+    body.mobile-view .current-song-artist {
+        font-size: 0.85rem;
+    }
+
+    body.mobile-view .album-cover {
+        width: min(70vw, 240px);
+    }
+
+    body.mobile-view .mobile-turntable__platter {
+        width: min(70vw, 240px);
+    }
+
+    body.mobile-view .mobile-inline-lyrics {
+        width: min(70vw, 240px);
+        height: min(70vw, 240px);
+    }
+
+    body.mobile-view .search-input {
+        font-size: 0.9rem;
+    }
+
+    body.mobile-view .mobile-panel-title {
+        font-size: 0.95rem;
+    }
+
+    body.mobile-view .transport-button {
+        width: clamp(42px, 12vw, 48px);
+        height: clamp(42px, 12vw, 48px);
+    }
+
+    body.mobile-view .transport-button--play {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+    }
 }
