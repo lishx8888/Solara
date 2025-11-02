@@ -657,6 +657,9 @@ const state = {
     currentGradient: '',
     isMobileInlineLyricsOpen: false,
     selectedSearchResults: new Set(),
+    radarKeywords: ['热门', '华语', '流行', '摇滚', '民谣', '电子', '说唱', '经典老歌', '纯音乐', 'ACG'],
+    lastKeyword: null,
+    chineseCategories: ['华语流行', '华语摇滚', '华语民谣', '华语经典', '华语说唱']
 };
 
 // ==== Media Session integration (Safari/iOS Lock Screen) ====
