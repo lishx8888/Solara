@@ -4009,7 +4009,7 @@ async function exploreOnlineMusic() {
         state.lastKeyword = keyword;
         
         // 先通过搜索关键词获取音乐
-        let songs = await API.search(keyword, { limit: 30 });
+        let songs = await API.search(keyword, { limit: 50 });
         
         // 如果搜索结果不足，则回退到默认榜单
         if (songs.length < 10) {
