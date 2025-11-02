@@ -4017,12 +4017,8 @@ async function exploreOnlineMusic() {
         }
 
         if (songs.length > 0) {
-            // 去重并将在线音乐添加到统一播放列表
-            const uniqueSongs = songs.filter(song => 
-                !state.playlistSongs.some(existing => existing.id === song.id)
-            );
-            
-            state.playlistSongs = [...state.playlistSongs, ...uniqueSongs];
+            // 直接添加所有获取的歌曲，不进行去重
+            state.playlistSongs = [...state.playlistSongs, ...songs];
             state.onlineSongs = songs; // 保留原有的在线音乐列表
 
             // 更新播放列表显示
@@ -4031,8 +4027,8 @@ async function exploreOnlineMusic() {
             // 更新按钮显示当前关键词
             btnText.innerHTML = `<i class="fas fa-satellite-dish"></i> 探索雷达 (${keyword})`;
 
-            showNotification(`已加载 ${uniqueSongs.length} 首"${keyword}"风格歌曲到播放列表`);
-            debugLog(`加载探索雷达音乐成功: ${uniqueSongs.length} 首歌曲 (关键词: ${keyword})`);
+            showNotification(`已加载 ${songs.length} 首"${keyword}"风格歌曲到播放列表`);
+            debugLog(`加载探索雷达音乐成功: ${songs.length} 首歌曲 (关键词: ${keyword})`);
         } else {
             showNotification("未找到在线音乐", "error");
         }
@@ -4062,12 +4058,8 @@ async function fetchChineseMusic() {
         const songs = await API.getRadarPlaylist(category.id, { limit: 50, offset: 0 });
 
         if (songs.length > 0) {
-            // 去重并将音乐添加到统一播放列表
-            const uniqueSongs = songs.filter(song => 
-                !state.playlistSongs.some(existing => existing.id === song.id)
-            );
-            
-            state.playlistSongs = [...state.playlistSongs, ...uniqueSongs];
+            // 直接添加所有获取的歌曲，不进行去重
+            state.playlistSongs = [...state.playlistSongs, ...songs];
             state.onlineSongs = songs; // 更新在线音乐列表
 
             // 更新播放列表显示
@@ -4076,8 +4068,8 @@ async function fetchChineseMusic() {
             // 更新按钮显示当前分类
             btnText.innerHTML = `<i class="fas fa-music"></i> ${category.name}`;
 
-            showNotification(`已加载 ${uniqueSongs.length} 首"${category.name}"歌曲到播放列表`);
-            debugLog(`加载华语音乐成功: ${uniqueSongs.length} 首歌曲 (分类: ${category.name})`);
+            showNotification(`已加载 ${songs.length} 首"${category.name}"歌曲到播放列表`);
+            debugLog(`加载华语音乐成功: ${songs.length} 首歌曲 (分类: ${category.name})`);
         } else {
             showNotification("未找到华语音乐", "error");
         }
