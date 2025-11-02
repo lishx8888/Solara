@@ -3097,12 +3097,26 @@ function showQualityMenu(event, index, type) {
     // 创建新的质量菜单
     const menu = document.createElement("div");
     menu.className = "dynamic-quality-menu";
-    menu.innerHTML = `
-        <div class="quality-option" onclick="downloadWithQuality(event, ${index}, '${type}', '128')">标准音质 (128k)</div>
-        <div class="quality-option" onclick="downloadWithQuality(event, ${index}, '${type}', '192')">高音质 (192k)</div>
-        <div class="quality-option" onclick="downloadWithQuality(event, ${index}, '${type}', '320')">超高音质 (320k)</div>
-        <div class="quality-option" onclick="downloadWithQuality(event, ${index}, '${type}', '999')">无损音质</div>
-    `;
+    
+    // 定义音质选项
+    const qualities = [
+        { value: '128', label: '标准音质 (128k)' },
+        { value: '192', label: '高音质 (192k)' },
+        { value: '320', label: '超高音质 (320k)' },
+        { value: '999', label: '无损音质' }
+    ];
+    
+    // 使用事件监听器代替内联onclick，确保事件处理更可靠
+    qualities.forEach(quality => {
+        const option = document.createElement('div');
+        option.className = 'quality-option';
+        option.textContent = quality.label;
+        option.addEventListener('click', function(e) {
+            e.stopPropagation();
+            downloadWithQuality(e, index, type, quality.value);
+        });
+        menu.appendChild(option);
+    });
 
     // 设置菜单位置
     const button = event.target.closest("button");
