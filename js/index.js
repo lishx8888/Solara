@@ -4301,23 +4301,55 @@ async function downloadSong(song, quality = "320") {
             })();
             const filename = `${song.name} - ${Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}.${fileExtension}`;
             
-            // 使用更可靠的下载方法，避免弹出新窗口
-            const link = document.createElement("a");
-            link.href = downloadUrl;
-            link.download = filename;
-            link.rel = "noopener noreferrer";
-            link.style.display = "none";
-            
-            // 添加到DOM并以编程方式触发点击
-            document.body.appendChild(link);
-            // 使用事件触发而不是直接click()
-            const clickEvent = new MouseEvent("click", {
-                bubbles: false,
-                cancelable: true,
-                view: window
-            });
-            link.dispatchEvent(clickEvent);
-            document.body.removeChild(link);
+            // 使用fetch API获取音频文件并创建Blob URL，确保下载在当前窗口进行
+            try {
+                const response = await fetch(downloadUrl);
+                if (!response.ok) {
+                    throw new Error(`下载失败: ${response.status}`);
+                }
+                
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                link.download = filename;
+                link.rel = "noopener noreferrer";
+                link.style.display = "none";
+                
+                document.body.appendChild(link);
+                
+                // 使用事件触发点击
+                const clickEvent = new MouseEvent("click", {
+                    bubbles: false,
+                    cancelable: true,
+                    view: window
+                });
+                link.dispatchEvent(clickEvent);
+                
+                // 延迟移除链接和Blob URL，确保下载完成
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(blobUrl);
+                }, 100);
+            } catch (fetchError) {
+                console.warn("使用fetch API下载失败，尝试使用原始链接方法:", fetchError);
+                // 如果fetch方法失败，回退到原始链接方法
+                const link = document.createElement("a");
+                link.href = downloadUrl;
+                link.download = filename;
+                link.rel = "noopener noreferrer";
+                link.style.display = "none";
+                
+                document.body.appendChild(link);
+                const clickEvent = new MouseEvent("click", {
+                    bubbles: false,
+                    cancelable: true,
+                    view: window
+                });
+                link.dispatchEvent(clickEvent);
+                document.body.removeChild(link);
+            }
 
             showNotification("下载已开始", "success");
         } else {
