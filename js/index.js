@@ -2312,6 +2312,10 @@ function setupInteractions() {
     }
 
     dom.loadOnlineBtn.addEventListener("click", exploreOnlineMusic);
+    // 为随机推荐80首歌曲按钮添加点击事件
+    if (document.getElementById('random80SongsBtn')) {
+        document.getElementById('random80SongsBtn').addEventListener("click", random80Songs);
+    }
     
     // 添加长按支持以切换到华语音乐
     let longPressTimer;
@@ -4093,6 +4097,75 @@ async function fetchChineseMusic() {
     } finally {
         btn.disabled = false;
         btnText.style.display = "inline-flex"; // 保持与原有样式一致
+        loader.style.display = "none";
+    }
+}
+
+// 新增：随机推荐80首歌曲功能
+async function random80Songs() {
+    const btn = document.getElementById('random80SongsBtn');
+    const btnText = btn.querySelector(".btn-text");
+    const loader = btn.querySelector(".loader");
+
+    try {
+        btn.disabled = true;
+        btnText.style.display = "none";
+        loader.style.display = "inline-block";
+        
+        // 收集所有歌曲
+        let allSongs = [];
+        
+        // 从所有关键词搜索歌曲
+        for (const keyword of state.radarKeywords) {
+            try {
+                // 每个关键词搜索30首歌曲
+                const songs = await API.search(keyword, "netease", 30, 1);
+                allSongs = [...allSongs, ...songs];
+            } catch (error) {
+                console.error(`搜索关键词"${keyword}"失败:`, error);
+            }
+        }
+        
+        // 从所有华语分类获取歌曲
+        for (const category of state.chineseCategories) {
+            try {
+                // 每个分类获取30首歌曲
+                const songs = await API.getRadarPlaylist(category.id, { limit: 30, offset: 0 });
+                allSongs = [...allSongs, ...songs];
+            } catch (error) {
+                console.error(`获取分类"${category.name}"失败:`, error);
+            }
+        }
+        
+        // 去重处理
+        const uniqueSongs = allSongs.filter((song, index, self) => 
+            index === self.findIndex((s) => s.id === song.id && s.source === song.source)
+        );
+        
+        // 随机打乱顺序
+        const shuffledSongs = shuffleArray(uniqueSongs);
+        
+        // 取前80首
+        const selectedSongs = shuffledSongs.slice(0, 80);
+        
+        if (selectedSongs.length > 0) {
+            // 添加到播放列表
+            state.playlistSongs = [...state.playlistSongs, ...selectedSongs];
+            
+            // 更新播放列表显示
+            renderPlaylist();
+            
+            showNotification(`已添加 ${selectedSongs.length} 首随机歌曲到播放列表`);
+            debugLog(`随机推荐歌曲成功: ${selectedSongs.length} 首歌曲`);
+        } else {
+            showNotification("未能获取到足够的歌曲", "error");
+        }
+    } catch (error) {
+        console.error("随机推荐歌曲失败:", error);
+        showNotification("获取失败，请稍后重试", "error");
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = "inline-flex";
         loader.style.display = "none";
     }
 }
