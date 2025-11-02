@@ -4059,7 +4059,7 @@ async function fetchChineseMusic() {
         // 随机选择一个华语分类
         const category = state.chineseCategories[Math.floor(Math.random() * state.chineseCategories.length)];
         
-        const songs = await API.getRadarPlaylist(category.id, { limit: 40, offset: 0 });
+        const songs = await API.getRadarPlaylist(category.id, { limit: 50, offset: 0 });
 
         if (songs.length > 0) {
             // 去重并将音乐添加到统一播放列表
