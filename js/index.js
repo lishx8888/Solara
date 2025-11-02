@@ -4289,7 +4289,6 @@ async function downloadSong(song, quality = "320") {
                 return preferredExtension;
             })();
             link.download = `${song.name} - ${Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}.${fileExtension}`;
-            link.target = "_blank";
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
