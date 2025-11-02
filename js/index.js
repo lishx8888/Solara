@@ -670,10 +670,6 @@ const state = {
         { id: '19723756', name: '欧美金曲' },
         { id: '2617766278', name: 'ACG音乐' }
     ],
-    // 优化播放延迟相关
-    audioUrlCache: {}, // 缓存音频URL
-    preloadedNextSong: null, // 预加载的下一首歌
-    preloadAbortController: null, // 用于取消预加载请求
 };
 
 // ==== Media Session integration (Safari/iOS Lock Screen) ====
@@ -3716,139 +3712,6 @@ function waitForAudioReady(player) {
     });
 }
 
-// 获取音频URL（带缓存）
-async function getAudioUrlWithCache(song, quality = '320') {
-    const cacheKey = `${song.id}_${song.source}_${quality}`;
-    
-    // 检查缓存中是否已有该歌曲的URL
-    if (state.audioUrlCache[cacheKey]) {
-        debugLog(`从缓存获取音频URL: ${song.name}`);
-        return state.audioUrlCache[cacheKey];
-    }
-    
-    // 从API获取URL
-    const audioUrl = API.getSongUrl(song, quality);
-    debugLog(`获取音频URL: ${audioUrl}`);
-
-    const audioData = await API.fetchJson(audioUrl);
-
-    if (!audioData || !audioData.url) {
-        throw new Error('无法获取音频播放地址');
-    }
-
-    const originalAudioUrl = audioData.url;
-    const proxiedAudioUrl = buildAudioProxyUrl(originalAudioUrl);
-    const preferredAudioUrl = preferHttpsUrl(originalAudioUrl);
-    const candidateAudioUrls = Array.from(
-        new Set([proxiedAudioUrl, preferredAudioUrl, originalAudioUrl].filter(Boolean))
-    );
-    
-    // 缓存所有候选URL
-    state.audioUrlCache[cacheKey] = {
-        primaryUrl: candidateAudioUrls[0] || originalAudioUrl,
-        allUrls: candidateAudioUrls
-    };
-    
-    return state.audioUrlCache[cacheKey];
-}
-
-// 预加载下一首歌
-function preloadNextSong() {
-    // 取消之前的预加载请求
-    if (state.preloadAbortController) {
-        state.preloadAbortController.abort();
-    }
-    
-    // 获取下一首歌
-    const nextSong = getNextSongInfo();
-    if (!nextSong) return;
-    
-    const quality = state.playbackQuality || '320';
-    const cacheKey = `${nextSong.id}_${nextSong.source}_${quality}`;
-    
-    // 如果已缓存，则不需要预加载
-    if (state.audioUrlCache[cacheKey]) return;
-    
-    state.preloadAbortController = new AbortController();
-    const { signal } = state.preloadAbortController;
-    
-    // 预加载下一首歌的URL
-    getAudioUrlWithCache(nextSong, quality).then(urlData => {
-        // 仅当仍然是下一首歌时才设置预加载状态
-        const currentNextSong = getNextSongInfo();
-        if (currentNextSong && currentNextSong.id === nextSong.id) {
-            state.preloadedNextSong = { song: nextSong, urlData };
-            debugLog(`已预加载下一首歌: ${nextSong.name}`);
-        }
-    }).catch(error => {
-        // 忽略预加载取消错误
-        if (error.name !== 'AbortError') {
-            console.warn('预加载下一首歌失败:', error);
-        }
-    });
-}
-
-// 获取下一首歌信息
-function getNextSongInfo() {
-    let playlist;
-    let currentIndex;
-    
-    if (state.currentPlaylist === "playlist") {
-        playlist = state.playlistSongs;
-        currentIndex = state.currentTrackIndex;
-    } else if (state.currentPlaylist === "online") {
-        playlist = state.onlineSongs;
-        currentIndex = state.currentTrackIndex;
-    } else {
-        playlist = state.searchResults;
-        currentIndex = state.currentTrackIndex;
-    }
-    
-    if (!playlist || playlist.length === 0 || currentIndex < 0) {
-        return null;
-    }
-    
-    if (state.playMode === "single") {
-        return playlist[currentIndex];
-    } else if (state.playMode === "random") {
-        // 随机模式：获取一个随机索引
-        const availableIndexes = playlist.map((_, index) => index).filter(index => index !== currentIndex);
-        if (availableIndexes.length === 0) {
-            return playlist[currentIndex];
-        }
-        const randomIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
-        return playlist[randomIndex];
-    } else {
-        // 列表循环
-        const nextIndex = (currentIndex + 1) % playlist.length;
-        return playlist[nextIndex];
-    }
-}
-
-// 简化版等待音频就绪，只需要canplaythrough事件
-function waitForAudioCanPlay(player) {
-    if (!player) return Promise.resolve();
-    if (player.readyState >= 4) { // HAVE_ENOUGH_DATA
-        return Promise.resolve();
-    }
-    return new Promise((resolve, reject) => {
-        const cleanup = () => {
-            player.removeEventListener('canplaythrough', onCanPlay);
-            player.removeEventListener('error', onError);
-        };
-        const onCanPlay = () => {
-            cleanup();
-            resolve();
-        };
-        const onError = () => {
-            cleanup();
-            reject(new Error('音频加载失败'));
-        };
-        player.addEventListener('canplaythrough', onCanPlay, { once: true });
-        player.addEventListener('error', onError, { once: true });
-    });
-}
-
 async function playSong(song, options = {}) {
     const { autoplay = true, startTime = 0, preserveProgress = false } = options;
 
@@ -3860,9 +3723,33 @@ async function playSong(song, options = {}) {
     state.pendingPaletteReady = false;
 
     try {
-        // 立即更新UI，给用户即时反馈
-        updateCurrentSongInfo(song, { loadArtwork: true });
-        
+        updateCurrentSongInfo(song, { loadArtwork: false });
+
+        const quality = state.playbackQuality || '320';
+        const audioUrl = API.getSongUrl(song, quality);
+        debugLog(`获取音频URL: ${audioUrl}`);
+
+        const audioData = await API.fetchJson(audioUrl);
+
+        if (!audioData || !audioData.url) {
+            throw new Error('无法获取音频播放地址');
+        }
+
+        const originalAudioUrl = audioData.url;
+        const proxiedAudioUrl = buildAudioProxyUrl(originalAudioUrl);
+        const preferredAudioUrl = preferHttpsUrl(originalAudioUrl);
+        const candidateAudioUrls = Array.from(
+            new Set([proxiedAudioUrl, preferredAudioUrl, originalAudioUrl].filter(Boolean))
+        );
+
+        const primaryAudioUrl = candidateAudioUrls[0] || originalAudioUrl;
+
+        if (proxiedAudioUrl && proxiedAudioUrl !== originalAudioUrl) {
+            debugLog(`音频地址已通过代理转换为 HTTPS: ${proxiedAudioUrl}`);
+        } else if (preferredAudioUrl && preferredAudioUrl !== originalAudioUrl) {
+            debugLog(`音频地址由 HTTP 升级为 HTTPS: ${preferredAudioUrl}`);
+        }
+
         state.currentSong = song;
         state.currentAudioUrl = null;
 
@@ -3878,104 +3765,80 @@ async function playSong(song, options = {}) {
         }
 
         state.pendingSeekTime = startTime > 0 ? startTime : null;
-        
+
         let selectedAudioUrl = null;
         let lastAudioError = null;
         let usedFallbackAudio = false;
-        let candidateAudioUrls = [];
-        
-        // 检查是否是预加载的下一首歌
-        if (state.preloadedNextSong && state.preloadedNextSong.song.id === song.id) {
-            debugLog(`使用预加载的音频: ${song.name}`);
-            selectedAudioUrl = state.preloadedNextSong.urlData.primaryUrl;
-            candidateAudioUrls = state.preloadedNextSong.urlData.allUrls;
-            state.preloadedNextSong = null;
-        } else {
-            // 从缓存或API获取音频URL
-            const quality = state.playbackQuality || '320';
-            const urlData = await getAudioUrlWithCache(song, quality);
-            selectedAudioUrl = urlData.primaryUrl;
-            candidateAudioUrls = urlData.allUrls;
+
+        for (const candidateUrl of candidateAudioUrls) {
+            dom.audioPlayer.src = candidateUrl;
+            dom.audioPlayer.load();
+
+            try {
+                await waitForAudioReady(dom.audioPlayer);
+                selectedAudioUrl = candidateUrl;
+                usedFallbackAudio = candidateUrl !== primaryAudioUrl && candidateAudioUrls.length > 1;
+                break;
+            } catch (error) {
+                lastAudioError = error;
+                console.warn('音频元数据加载异常', error);
+
+                if (candidateUrl === primaryAudioUrl && candidateAudioUrls.length > 1) {
+                    debugLog('主音频地址加载失败，尝试使用备用地址');
+                }
+            }
         }
 
-        // 立即设置音频源并尝试播放，不等待元数据加载
-        dom.audioPlayer.src = selectedAudioUrl;
-        
-        // 异步设置播放位置，不阻塞开始播放
-        if (state.pendingSeekTime != null) {
-            dom.audioPlayer.currentTime = state.pendingSeekTime;
-            state.pendingSeekTime = null;
+        if (!selectedAudioUrl) {
+            throw lastAudioError || new Error('音频加载失败');
         }
-        
-        // 立即开始播放，利用浏览器的缓冲机制
+
+        if (usedFallbackAudio) {
+            debugLog(`已回退至备用音频地址: ${selectedAudioUrl}`);
+            showNotification('主音频加载失败，已切换到备用音源', 'warning');
+        }
+
+        state.currentAudioUrl = selectedAudioUrl;
+
+        if (state.pendingSeekTime != null) {
+            setAudioCurrentTime(state.pendingSeekTime);
+            state.pendingSeekTime = null;
+        } else {
+            setAudioCurrentTime(dom.audioPlayer.currentTime || 0);
+        }
+
+        state.lastSavedPlaybackTime = state.currentPlaybackTime;
+
         let playPromise = null;
+
         if (autoplay) {
             playPromise = dom.audioPlayer.play();
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     console.error('播放失败:', error);
-                    // 播放失败时尝试其他候选URL
-                    if (!usedFallbackAudio && candidateAudioUrls.length > 1) {
-                        attemptFallbackAudioUrls(candidateAudioUrls, selectedAudioUrl, startTime, autoplay);
-                    } else {
-                        showNotification('播放失败，请检查网络连接', 'error');
-                    }
+                    showNotification('播放失败，请检查网络连接', 'error');
                 });
+            } else {
+                playPromise = null;
             }
+        } else {
+            dom.audioPlayer.pause();
+            updatePlayPauseButton();
         }
-        
-        // 并行加载歌词，不阻塞播放
-        loadLyrics(song);
-        
-        // 设置音频就绪标记
-        state.audioReadyForPalette = true;
-        
-        // 更新媒体信息
+
+        scheduleDeferredSongAssets(song, playPromise);
+
+        debugLog(`开始播放: ${song.name} @${quality}`);
+
         if (typeof window.__SOLARA_UPDATE_MEDIA_METADATA === 'function') {
             window.__SOLARA_UPDATE_MEDIA_METADATA();
         }
-        
-        debugLog(`开始播放: ${song.name} @${state.playbackQuality || '320'}`);
-        
-        // 异步尝试备用URL（如果主URL失败）
-        async function attemptFallbackAudioUrls(allUrls, primaryUrl, startTime, autoplay) {
-            for (const candidateUrl of allUrls) {
-                if (candidateUrl === primaryUrl) continue;
-                
-                try {
-                    dom.audioPlayer.src = candidateUrl;
-                    if (startTime > 0) {
-                        dom.audioPlayer.currentTime = startTime;
-                    }
-                    
-                    if (autoplay) {
-                        await dom.audioPlayer.play();
-                    }
-                    
-                    usedFallbackAudio = true;
-                    selectedAudioUrl = candidateUrl;
-                    debugLog(`已回退至备用音频地址: ${selectedAudioUrl}`);
-                    showNotification('主音频加载失败，已切换到备用音源', 'warning');
-                    break;
-                } catch (error) {
-                    console.warn('备用音频地址加载失败:', candidateUrl, error);
-                }
-            }
-        }
-        
-        // 预加载下一首歌
-        preloadNextSong();
-        
-        // 异步保存状态
-        setTimeout(() => {
-            savePlayerState();
-        }, 0);
     } catch (error) {
         console.error('播放歌曲失败:', error);
-        showNotification('播放失败，请稍后重试', 'error');
         throw error;
+    } finally {
+        savePlayerState();
     }
-}
 }
 
 function scheduleDeferredSongAssets(song, playPromise) {
