@@ -4270,9 +4270,6 @@ async function downloadSong(song, quality = "320") {
             }
 
             const downloadUrl = proxiedAudioUrl || preferredAudioUrl || audioData.url;
-
-            const link = document.createElement("a");
-            link.href = downloadUrl;
             const preferredExtension =
                 quality === "999" ? "flac" : quality === "740" ? "ape" : "mp3";
             const fileExtension = (() => {
@@ -4288,9 +4285,24 @@ async function downloadSong(song, quality = "320") {
                 }
                 return preferredExtension;
             })();
-            link.download = `${song.name} - ${Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}.${fileExtension}`;
+            const filename = `${song.name} - ${Array.isArray(song.artist) ? song.artist.join(", ") : song.artist}.${fileExtension}`;
+            
+            // 使用更可靠的下载方法，避免弹出新窗口
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = filename;
+            link.rel = "noopener noreferrer";
+            link.style.display = "none";
+            
+            // 添加到DOM并以编程方式触发点击
             document.body.appendChild(link);
-            link.click();
+            // 使用事件触发而不是直接click()
+            const clickEvent = new MouseEvent("click", {
+                bubbles: false,
+                cancelable: true,
+                view: window
+            });
+            link.dispatchEvent(clickEvent);
             document.body.removeChild(link);
 
             showNotification("下载已开始", "success");
