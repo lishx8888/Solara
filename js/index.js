@@ -657,6 +657,19 @@ const state = {
     currentGradient: '',
     isMobileInlineLyricsOpen: false,
     selectedSearchResults: new Set(),
+    // 雷达音乐相关
+    radarKeywords: ['热门', '华语', '流行', '摇滚', '民谣', '电子', '说唱', '经典老歌', '纯音乐', 'ACG'],
+    lastKeyword: null,
+    chineseCategories: [
+        { id: '3778678', name: '热门歌曲' },
+        { id: '3779629', name: '新歌榜' },
+        { id: '2884035', name: '华语金曲' },
+        { id: '3779798', name: '流行榜单' },
+        { id: '10520166', name: '电音榜单' },
+        { id: '2006508653', name: '说唱榜单' },
+        { id: '19723756', name: '欧美金曲' },
+        { id: '2617766278', name: 'ACG音乐' }
+    ],
 };
 
 // ==== Media Session integration (Safari/iOS Lock Screen) ====
@@ -2299,13 +2312,59 @@ function setupInteractions() {
     }
 
     dom.loadOnlineBtn.addEventListener("click", exploreOnlineMusic);
+    
+    // 添加长按支持以切换到华语音乐
+    let longPressTimer;
+    const LONG_PRESS_DURATION = 800;
+    
+    // 长按开始
+    function startLongPress(element, handler) {
+        return function(event) {
+            longPressTimer = setTimeout(() => {
+                handler(event);
+            }, LONG_PRESS_DURATION);
+        };
+    }
+    
+    // 长按取消
+    function cancelLongPress() {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }
+    
+    // 桌面端探索按钮
+    dom.loadOnlineBtn.addEventListener("touchstart", startLongPress(dom.loadOnlineBtn, fetchChineseMusic));
+    dom.loadOnlineBtn.addEventListener("touchend", cancelLongPress);
+    dom.loadOnlineBtn.addEventListener("touchmove", cancelLongPress);
+    dom.loadOnlineBtn.addEventListener("touchcancel", cancelLongPress);
+    
+    // 添加右键菜单支持华语音乐
+    dom.loadOnlineBtn.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        fetchChineseMusic();
+    });
+    
     if (dom.mobileExploreButton) {
+        // 移动端探索按钮
         dom.mobileExploreButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
             closeAllMobileOverlays();
             exploreOnlineMusic();
         });
+        
+        // 移动端长按支持
+        dom.mobileExploreButton.addEventListener("touchstart", startLongPress(dom.mobileExploreButton, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeAllMobileOverlays();
+            fetchChineseMusic();
+        }));
+        dom.mobileExploreButton.addEventListener("touchend", cancelLongPress);
+        dom.mobileExploreButton.addEventListener("touchmove", cancelLongPress);
+        dom.mobileExploreButton.addEventListener("touchcancel", cancelLongPress);
     }
 
     if (dom.importPlaylistBtn && dom.importPlaylistInput) {
@@ -3930,7 +3989,7 @@ function updateOnlineHighlight() {
     });
 }
 
-// 修复：探索在线音乐 - 添加到统一播放列表
+// 优化：基于关键词的雷达音乐探索功能
 async function exploreOnlineMusic() {
     const btn = dom.loadOnlineBtn;
     const btnText = btn.querySelector(".btn-text");
@@ -3940,28 +3999,94 @@ async function exploreOnlineMusic() {
         btn.disabled = true;
         btnText.style.display = "none";
         loader.style.display = "inline-block";
-
-        const songs = await API.getRadarPlaylist("3778678", { limit: 50, offset: 0 });
+        
+        // 随机选择一个关键词，避免连续选择相同关键词
+        let keyword;
+        do {
+            keyword = state.radarKeywords[Math.floor(Math.random() * state.radarKeywords.length)];
+        } while (state.radarKeywords.length > 1 && keyword === state.lastKeyword);
+        
+        state.lastKeyword = keyword;
+        
+        // 先通过搜索关键词获取音乐
+        let songs = await API.search(keyword, { limit: 30 });
+        
+        // 如果搜索结果不足，则回退到默认榜单
+        if (songs.length < 10) {
+            songs = await API.getRadarPlaylist("3778678", { limit: 50, offset: 0 });
+        }
 
         if (songs.length > 0) {
-            // 将在线音乐添加到统一播放列表
-            state.playlistSongs = [...state.playlistSongs, ...songs];
+            // 去重并将在线音乐添加到统一播放列表
+            const uniqueSongs = songs.filter(song => 
+                !state.playlistSongs.some(existing => existing.id === song.id)
+            );
+            
+            state.playlistSongs = [...state.playlistSongs, ...uniqueSongs];
             state.onlineSongs = songs; // 保留原有的在线音乐列表
 
             // 更新播放列表显示
             renderPlaylist();
+            
+            // 更新按钮显示当前关键词
+            btnText.innerHTML = `<i class="fas fa-satellite-dish"></i> 探索雷达 (${keyword})`;
 
-            showNotification(`已加载 ${songs.length} 首探索雷达歌曲到播放列表`);
-            debugLog(`加载探索雷达播放列表成功: ${songs.length} 首歌曲`);
+            showNotification(`已加载 ${uniqueSongs.length} 首"${keyword}"风格歌曲到播放列表`);
+            debugLog(`加载探索雷达音乐成功: ${uniqueSongs.length} 首歌曲 (关键词: ${keyword})`);
         } else {
             showNotification("未找到在线音乐", "error");
         }
     } catch (error) {
         console.error("加载在线音乐失败:", error);
+    } finally {
+        btn.disabled = false;
+        btnText.style.display = "inline-block";
+        loader.style.display = "none";
+    }
+}
+
+// 新增：华语音乐分类加载功能
+async function fetchChineseMusic() {
+    const btn = dom.loadOnlineBtn;
+    const btnText = btn.querySelector(".btn-text");
+    const loader = btn.querySelector(".loader");
+
+    try {
+        btn.disabled = true;
+        btnText.style.display = "none";
+        loader.style.display = "inline-block";
+        
+        // 随机选择一个华语分类
+        const category = state.chineseCategories[Math.floor(Math.random() * state.chineseCategories.length)];
+        
+        const songs = await API.getRadarPlaylist(category.id, { limit: 40, offset: 0 });
+
+        if (songs.length > 0) {
+            // 去重并将音乐添加到统一播放列表
+            const uniqueSongs = songs.filter(song => 
+                !state.playlistSongs.some(existing => existing.id === song.id)
+            );
+            
+            state.playlistSongs = [...state.playlistSongs, ...uniqueSongs];
+            state.onlineSongs = songs; // 更新在线音乐列表
+
+            // 更新播放列表显示
+            renderPlaylist();
+            
+            // 更新按钮显示当前分类
+            btnText.innerHTML = `<i class="fas fa-music"></i> ${category.name}`;
+
+            showNotification(`已加载 ${uniqueSongs.length} 首"${category.name}"歌曲到播放列表`);
+            debugLog(`加载华语音乐成功: ${uniqueSongs.length} 首歌曲 (分类: ${category.name})`);
+        } else {
+            showNotification("未找到华语音乐", "error");
+        }
+    } catch (error) {
+        console.error("加载华语音乐失败:", error);
         showNotification("加载失败，请稍后重试", "error");
     } finally {
         btn.disabled = false;
-        btnText.style.display = "flex";
+        btnText.style.display = "inline-flex"; // 保持与原有样式一致
         loader.style.display = "none";
     }
 }
