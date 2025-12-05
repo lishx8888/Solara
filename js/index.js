@@ -494,8 +494,12 @@ const savedCurrentPlaylist = (() => {
 // 2025 年完美可用版 API（无需任何后端，直接用）
 // 直接替换原来的整段 API 即可
 // ================================
+// ================================
+// 2025 年完美可用版 API（零报错版）
+// 直接替换原来的整段 API 配置即可
+// ================================
 const API = {
-    proxy: "https://yesplaymusic-api.vercel.app",   // 2025最稳线路（可换下面任意一条）
+    proxy: "https://yesplaymusic-api.vercel.app",   // 2025 年最稳线路
 
     // 搜索歌曲
     search: async (keyword, source = "netease", count = 50, page = 1) => {
@@ -514,7 +518,7 @@ const API = {
         }));
     },
 
-    // 雷达榜单（探索雷达、华语音乐都用这个）
+    // 雷达榜单（探索雷达、华语音乐都走这里）
     getRadarPlaylist: async (playlistId = "3778678", { limit = 50 } = {}) => {
         const res = await fetch(`${API.proxy}/playlist/track/all?id=${playlistId}&limit=${limit}`);
         const json = await res.json();
@@ -546,13 +550,13 @@ const API = {
     // 获取封面
     getPicUrl: (song) => song.pic_id || `${API.proxy}/song/detail?ids=${song.id.split('_')[1]}`,
 
-    // 保留你原来的 fetchJson 调用习惯（全部自动走新API）
+    // 保留原来的 fetchJson 调用方式（全部自动走新API）
     fetchJson: async (url) => {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`请求失败 ${res.status}`);
         return await res.json();
     }
-},
+};
 
     search: async (keyword, source = "netease,kuwo", count = 20, page = 1) => {
         // 支持同时搜索多个来源，增加搜索成功率
