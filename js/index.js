@@ -488,7 +488,7 @@ const savedCurrentPlaylist = (() => {
 
 // API配置 - 修复API地址和请求方式
 const API = {
-    baseUrl: "/proxy",
+    baseUrl: "https://music-api.gdstudio.xyz/api.php",
 
     generateSignature: () => {
         return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -520,8 +520,8 @@ const API = {
     },
 
     search: async (keyword, source = "netease", count = 20, page = 1) => {
-        const signature = API.generateSignature();
-        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}&s=${signature}`;
+        // 当直接访问原始API时，不需要签名参数
+        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}`;
 
         try {
             debugLog(`API请求: ${url}`);
@@ -547,8 +547,6 @@ const API = {
     },
 
     getRadarPlaylist: async (playlistId = "3778678", options = {}) => {
-        const signature = API.generateSignature();
-
         let limit = 50;
         let offset = 0;
 
@@ -573,7 +571,6 @@ const API = {
             id: playlistId,
             limit: String(limit),
             offset: String(offset),
-            s: signature,
         });
         const url = `${API.baseUrl}?${params.toString()}`;
 
@@ -3888,20 +3885,36 @@ function scheduleDeferredSongAssets(song, playPromise) {
 }
 
 // 修复：自动播放下一首 - 支持播放模式
+let autoPlayNextInProgress = false;
 function autoPlayNext() {
+    // 防止短时间内重复调用导致跳过歌曲
+    if (autoPlayNextInProgress) {
+        return;
+    }
+    
     if (dom.audioPlayer && dom.audioPlayer.__solaraMediaSessionHandledEnded === 'skip') {
         dom.audioPlayer.__solaraMediaSessionHandledEnded = false;
         return;
     }
-    if (state.playMode === "single") {
-        // 单曲循环
-        dom.audioPlayer.currentTime = 0;
-        dom.audioPlayer.play();
-        return;
-    }
+    
+    autoPlayNextInProgress = true;
+    
+    try {
+        if (state.playMode === "single") {
+            // 单曲循环
+            dom.audioPlayer.currentTime = 0;
+            dom.audioPlayer.play();
+            return;
+        }
 
-    playNext();
-    updatePlayPauseButton();
+        playNext();
+        updatePlayPauseButton();
+    } finally {
+        // 设置短暂延迟后重置标志，避免长时间锁定
+        setTimeout(() => {
+            autoPlayNextInProgress = false;
+        }, 500);
+    }
 }
 
 // 修复：播放下一首 - 支持播放模式和统一播放列表
@@ -4048,6 +4061,7 @@ async function exploreOnlineMusic() {
         }
     } catch (error) {
         console.error("加载在线音乐失败:", error);
+        showNotification("加载在线音乐失败，请稍后重试", "error");
     } finally {
         btn.disabled = false;
         btnText.style.display = "inline-block";
