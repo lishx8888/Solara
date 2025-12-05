@@ -3888,36 +3888,20 @@ function scheduleDeferredSongAssets(song, playPromise) {
 }
 
 // 修复：自动播放下一首 - 支持播放模式
-let autoPlayNextInProgress = false;
 function autoPlayNext() {
-    // 防止短时间内重复调用导致跳过歌曲
-    if (autoPlayNextInProgress) {
-        return;
-    }
-    
     if (dom.audioPlayer && dom.audioPlayer.__solaraMediaSessionHandledEnded === 'skip') {
         dom.audioPlayer.__solaraMediaSessionHandledEnded = false;
         return;
     }
-    
-    autoPlayNextInProgress = true;
-    
-    try {
-        if (state.playMode === "single") {
-            // 单曲循环
-            dom.audioPlayer.currentTime = 0;
-            dom.audioPlayer.play();
-            return;
-        }
-
-        playNext();
-        updatePlayPauseButton();
-    } finally {
-        // 设置短暂延迟后重置标志，避免长时间锁定
-        setTimeout(() => {
-            autoPlayNextInProgress = false;
-        }, 500);
+    if (state.playMode === "single") {
+        // 单曲循环
+        dom.audioPlayer.currentTime = 0;
+        dom.audioPlayer.play();
+        return;
     }
+
+    playNext();
+    updatePlayPauseButton();
 }
 
 // 修复：播放下一首 - 支持播放模式和统一播放列表
