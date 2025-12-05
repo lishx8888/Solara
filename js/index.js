@@ -494,28 +494,58 @@ const API = {
         return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     },
 
-    fetchJson: async (url) => {
-        try {
-            const response = await fetch(url, {
-                headers: {
-                    "Accept": "application/json",
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Request failed with status ${response.status}`);
-            }
-
-            const text = await response.text();
+    fetchJson: async (url, options = {}) => {
+        const { retries = 2, timeout = 10000 } = options;
+        
+        for (let attempt = 1; attempt <= retries + 1; attempt++) {
             try {
-                return JSON.parse(text);
-            } catch (parseError) {
-                console.warn("JSON parse failed, returning raw text", parseError);
-                return text;
+                // 创建超时控制
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        "Accept": "application/json",
+                    },
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    if (response.status === 520 && attempt <= retries) {
+                        // 对520错误进行重试
+                        console.warn(`API请求失败 (${response.status}), 正在进行第 ${attempt} 次重试...`);
+                        continue;
+                    }
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (parseError) {
+                    console.warn("JSON parse failed, returning raw text", parseError);
+                    return text;
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    // 请求超时
+                    if (attempt <= retries) {
+                        console.warn(`API请求超时, 正在进行第 ${attempt} 次重试...`);
+                        continue;
+                    }
+                    throw new Error(`API request timed out after ${timeout}ms`);
+                }
+                
+                if (attempt <= retries) {
+                    console.warn(`API请求失败 (${error.message}), 正在进行第 ${attempt} 次重试...`);
+                    continue;
+                }
+                
+                console.error("API request error:", error);
+                throw error;
             }
-        } catch (error) {
-            console.error("API request error:", error);
-            throw error;
         }
     },
 
