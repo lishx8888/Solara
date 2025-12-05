@@ -513,8 +513,8 @@ const API = {
                 clearTimeout(timeoutId);
 
                 if (!response.ok) {
-                    if (response.status === 520 && attempt <= retries) {
-                        // 对520错误进行重试
+                    if ((response.status === 520 || response.status === 521) && attempt <= retries) {
+                        // 对520和521错误进行重试
                         console.warn(`API请求失败 (${response.status}), 正在进行第 ${attempt} 次重试...`);
                         continue;
                     }
@@ -627,18 +627,15 @@ const API = {
     },
 
     getSongUrl: (song, quality = "320") => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=url&id=${song.id}&source=${song.source || "netease"}&br=${quality}&s=${signature}`;
+        return `${API.baseUrl}?types=url&id=${song.id}&source=${song.source || "netease"}&br=${quality}`;
     },
 
     getLyric: (song) => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=lyric&id=${song.lyric_id || song.id}&source=${song.source || "netease"}&s=${signature}`;
+        return `${API.baseUrl}?types=lyric&id=${song.lyric_id || song.id}&source=${song.source || "netease"}`;
     },
 
     getPicUrl: (song) => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=pic&id=${song.pic_id}&source=${song.source || "netease"}&size=300&s=${signature}`;
+        return `${API.baseUrl}?types=pic&id=${song.pic_id}&source=${song.source || "netease"}&size=300`;
     }
 };
 
