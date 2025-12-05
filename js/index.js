@@ -486,9 +486,9 @@ const savedCurrentPlaylist = (() => {
     return playlists.includes(stored) ? stored : "playlist";
 })();
 
-// API配置 - 修复API地址和请求方式
+// API配置 - 使用本地代理解决CORS问题
 const API = {
-    baseUrl: "https://music-api.gdstudio.xyz/api.php",
+    baseUrl: "/proxy",
 
     generateSignature: () => {
         return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
