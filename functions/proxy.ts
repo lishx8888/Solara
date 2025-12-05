@@ -96,11 +96,41 @@ async function proxyApiRequest(url: URL, request: Request): Promise<Response> {
     return new Response("Missing types", { status: 400 });
   }
 
+  // 构建请求头，模拟正常浏览器请求
+  const headers = new Headers();
+  
+  // 复制原始请求的重要头信息
+  const originalHeaders = ["User-Agent", "Accept", "Accept-Language", "Referer", "Cookie"];
+  for (const header of originalHeaders) {
+    const value = request.headers.get(header);
+    if (value) {
+      headers.set(header, value);
+    }
+  }
+  
+  // 设置默认头信息
+  if (!headers.has("User-Agent")) {
+    headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+  }
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json, text/javascript, */*; q=0.01");
+  }
+  if (!headers.has("Accept-Language")) {
+    headers.set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+  }
+  if (!headers.has("Referer")) {
+    headers.set("Referer", "https://music-api.gdstudio.xyz/");
+  }
+  
+  // 添加额外的头信息以避免被识别为机器人
+  headers.set("X-Requested-With", "XMLHttpRequest");
+  headers.set("DNT", "1");
+  headers.set("Sec-Fetch-Mode", "cors");
+  headers.set("Sec-Fetch-Site", "same-origin");
+  
   const upstream = await fetch(apiUrl.toString(), {
-    headers: {
-      "User-Agent": request.headers.get("User-Agent") ?? "Mozilla/5.0",
-      "Accept": "application/json",
-    },
+    headers,
+    credentials: "include", // 包含cookies
   });
 
   const headers = createCorsHeaders(upstream.headers);

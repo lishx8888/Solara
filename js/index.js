@@ -486,19 +486,19 @@ const savedCurrentPlaylist = (() => {
     return playlists.includes(stored) ? stored : "playlist";
 })();
 
-// API配置 - 修复API地址和请求方式
+// API配置 - 与music.html保持一致，直接使用目标API地址
 const API = {
-    baseUrl: "/proxy",
-
-    generateSignature: () => {
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    },
+    baseUrl: "https://music-api.gdstudio.xyz/api.php",
 
     fetchJson: async (url) => {
         try {
             const response = await fetch(url, {
                 headers: {
                     "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Referer": "https://music-api.gdstudio.xyz/",
+                    "X-Requested-With": "XMLHttpRequest",
                 },
             });
 
@@ -520,8 +520,7 @@ const API = {
     },
 
     search: async (keyword, source = "netease", count = 20, page = 1) => {
-        const signature = API.generateSignature();
-        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}&s=${signature}`;
+        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}`;
 
         try {
             debugLog(`API请求: ${url}`);
@@ -531,10 +530,10 @@ const API = {
             if (!Array.isArray(data)) throw new Error("搜索结果格式错误");
 
             return data.map(song => ({
-                id: song.id,
+                id: `${song.source}_${song.id}`,
                 name: song.name,
                 artist: song.artist,
-                album: song.album,
+                album: song.album || '未知专辑',
                 pic_id: song.pic_id,
                 url_id: song.url_id,
                 lyric_id: song.lyric_id,
@@ -547,8 +546,6 @@ const API = {
     },
 
     getRadarPlaylist: async (playlistId = "3778678", options = {}) => {
-        const signature = API.generateSignature();
-
         let limit = 50;
         let offset = 0;
 
@@ -573,25 +570,21 @@ const API = {
             id: playlistId,
             limit: String(limit),
             offset: String(offset),
-            s: signature,
         });
         const url = `${API.baseUrl}?${params.toString()}`;
 
         try {
             const data = await API.fetchJson(url);
-            const tracks = data && data.playlist && Array.isArray(data.playlist.tracks)
-                ? data.playlist.tracks.slice(0, limit)
-                : [];
-
-            if (tracks.length === 0) throw new Error("No tracks found");
-
-            return tracks.map(track => ({
-                id: track.id,
-                name: track.name,
-                artist: Array.isArray(track.ar) ? track.ar.map(artist => artist.name).join(" / ") : "",
-                source: "netease",
-                lyric_id: track.id,
-                pic_id: track.al?.pic_str || track.al?.pic || track.al?.picUrl || "",
+            if (!Array.isArray(data)) throw new Error("Invalid API response");
+            
+            return data.map(song => ({
+                id: `${song.source}_${song.id}`,
+                name: song.name,
+                artist: song.artist,
+                album: song.album || '未知专辑',
+                source: song.source,
+                lyric_id: song.lyric_id,
+                pic_id: song.pic_id,
             }));
         } catch (error) {
             console.error("API request failed:", error);
@@ -600,18 +593,21 @@ const API = {
     },
 
     getSongUrl: (song, quality = "320") => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=url&id=${song.id}&source=${song.source || "netease"}&br=${quality}&s=${signature}`;
+        // 处理带来源前缀的ID
+        const songId = song.id.includes('_') ? song.id.split('_')[1] : song.id;
+        return `${API.baseUrl}?types=url&id=${songId}&source=${song.source || "netease"}&br=${quality}`;
     },
 
     getLyric: (song) => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=lyric&id=${song.lyric_id || song.id}&source=${song.source || "netease"}&s=${signature}`;
+        // 处理带来源前缀的ID
+        const songId = song.id.includes('_') ? song.id.split('_')[1] : song.id;
+        return `${API.baseUrl}?types=lyric&id=${song.lyric_id || songId}&source=${song.source || "netease"}`;
     },
 
     getPicUrl: (song) => {
-        const signature = API.generateSignature();
-        return `${API.baseUrl}?types=pic&id=${song.pic_id}&source=${song.source || "netease"}&size=300&s=${signature}`;
+        // 处理带来源前缀的ID
+        const songId = song.id.includes('_') ? song.id.split('_')[1] : song.id;
+        return `${API.baseUrl}?types=pic&id=${song.pic_id}&source=${song.source || "netease"}&size=300`;
     }
 };
 
