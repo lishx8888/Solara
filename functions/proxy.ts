@@ -79,7 +79,7 @@ async function proxyKuwoAudio(targetUrl: string, request: Request): Promise<Resp
   return new Response(upstream.body, {
     status: upstream.status,
     statusText: upstream.statusText,
-    headers,
+    headers: responseHeaders,
   });
 }
 
@@ -133,9 +133,9 @@ async function proxyApiRequest(url: URL, request: Request): Promise<Response> {
     credentials: "include", // 包含cookies
   });
 
-  const headers = createCorsHeaders(upstream.headers);
-  if (!headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json; charset=utf-8");
+  const responseHeaders = createCorsHeaders(upstream.headers);
+  if (!responseHeaders.has("Content-Type")) {
+    responseHeaders.set("Content-Type", "application/json; charset=utf-8");
   }
 
   return new Response(upstream.body, {
