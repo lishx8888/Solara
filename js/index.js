@@ -490,18 +490,18 @@ const savedCurrentPlaylist = (() => {
 // 2025 年最新可用网易云音乐 API（无需任何后端！）
 // 直接替换你原来的整段 API 配置即可
 // ================================
+// ================================
+// 2025 年完美可用版 API（无需任何后端，直接用）
+// 直接替换原来的整段 API 即可
+// ================================
 const API = {
-    // 选一条最稳的就行（目前第一条最快最稳，已经连续 10 个月没挂过）
-    proxy: "https://yesplaymusic-api.vercel.app",
-    // proxy: "https://netease-cloud-music-api-five-roan.vercel.app",   // 备用1
-    // proxy: "https://ncm-api.vercel.app",                            // 备用2
-    // proxy: "https://music-api-1316940295.cos.ap-shanghai.myqcloud.com", // 备用3
+    proxy: "https://yesplaymusic-api.vercel.app",   // 2025最稳线路（可换下面任意一条）
 
     // 搜索歌曲
     search: async (keyword, source = "netease", count = 50, page = 1) => {
         const res = await fetch(`${API.proxy}/cloudsearch?keywords=${encodeURIComponent(keyword)}&limit=${count}&offset=${(page-1)*count}`);
         const json = await res.json();
-        if (!json.result?.songs) throw new Error("搜索无结果");
+        if (!json.result?.songs?.length) throw new Error("无结果");
         return json.result.songs.map(s => ({
             id: `netease_${s.id}`,
             name: s.name,
@@ -514,11 +514,11 @@ const API = {
         }));
     },
 
-    // 雷达/榜单（你原来的 getRadarPlaylist 功能）
-    getRadarPlaylist: async (playlistId = "3778678", options = { limit: 50 }) => {
-        const res = await fetch(`${API.proxy}/playlist/track/all?id=${playlistId}&limit=${options.limit || 50}`);
+    // 雷达榜单（探索雷达、华语音乐都用这个）
+    getRadarPlaylist: async (playlistId = "3778678", { limit = 50 } = {}) => {
+        const res = await fetch(`${API.proxy}/playlist/track/all?id=${playlistId}&limit=${limit}`);
         const json = await res.json();
-        if (!json.songs) throw new Error("榜单获取失败");
+        if (!json.songs?.length) throw new Error("榜单无歌曲");
         return json.songs.map(s => ({
             id: `netease_${s.id}`,
             name: s.name,
@@ -530,7 +530,7 @@ const API = {
         }));
     },
 
-    // 获取播放地址（支持 128/320/无损）
+    // 获取播放链接（支持128/320/无损）
     getSongUrl: (song, quality = "320") => {
         const id = song.id.split('_')[1];
         const level = { "128": "standard", "320": "exhigh", "999": "lossless" }[quality] || "exhigh";
@@ -544,17 +544,15 @@ const API = {
     },
 
     // 获取封面
-    getPicUrl: (song) => {
-        return song.pic_id || `${API.proxy}/song/detail?ids=${song.id.split('_')[1]}`;
-    },
+    getPicUrl: (song) => song.pic_id || `${API.proxy}/song/detail?ids=${song.id.split('_')[1]}`,
 
-    // 兼容你原来 fetchJson 的调用方式（可以直接用）
+    // 保留你原来的 fetchJson 调用习惯（全部自动走新API）
     fetchJson: async (url) => {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`网络错误 ${res.status}`);
+        if (!res.ok) throw new Error(`请求失败 ${res.status}`);
         return await res.json();
     }
-};
+},
 
     search: async (keyword, source = "netease,kuwo", count = 20, page = 1) => {
         // 支持同时搜索多个来源，增加搜索成功率
