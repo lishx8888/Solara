@@ -399,10 +399,7 @@ function buildAudioProxyUrl(url) {
             return parsedUrl.toString();
         }
 
-        if (parsedUrl.protocol === "http:" && /(^|\.)kuwo\.cn$/i.test(parsedUrl.hostname)) {
-            return `${API.baseUrl}?target=${encodeURIComponent(parsedUrl.toString())}`;
-        }
-
+        // 新API已经使用HTTPS，不再需要代理转换
         return parsedUrl.toString();
     } catch (error) {
         console.warn("无法解析音频地址，跳过代理", error);
@@ -487,26 +484,35 @@ const savedCurrentPlaylist = (() => {
 })();
 
 // ================================
-// 2025 年最新可用网易云音乐 API（无需任何后端！）
-// 直接替换你原来的整段 API 配置即可
-// ================================
-// ================================
-// 2025 年完美可用版 API（无需任何后端，直接用）
-// 直接替换原来的整段 API 即可
-// ================================
-// ================================
 // 2025 年完美可用版 API（零报错版）
-// 直接替换原来的整段 API 配置即可
 // ================================
 const API = {
     proxy: "https://yesplaymusic-api.vercel.app",   // 2025 年最稳线路
 
+    fetchJson: async (url) => {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    "Accept": "application/json",
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error("API request error:", error);
+            throw error;
+        }
+    },
+
     // 搜索歌曲
     search: async (keyword, source = "netease", count = 50, page = 1) => {
-        const res = await fetch(`${API.proxy}/cloudsearch?keywords=${encodeURIComponent(keyword)}&limit=${count}&offset=${(page-1)*count}`);
-        const json = await res.json();
-        if (!json.result?.songs?.length) throw new Error("无结果");
-        return json.result.songs.map(s => ({
+        const res = await API.fetchJson(`${API.proxy}/cloudsearch?keywords=${encodeURIComponent(keyword)}&limit=${count}&offset=${(page-1)*count}`);
+        if (!res.result?.songs?.length) throw new Error("无结果");
+        return res.result.songs.map(s => ({
             id: `netease_${s.id}`,
             name: s.name,
             artist: s.ar.map(a => a.name).join(' / '),
@@ -520,10 +526,9 @@ const API = {
 
     // 雷达榜单（探索雷达、华语音乐都走这里）
     getRadarPlaylist: async (playlistId = "3778678", { limit = 50 } = {}) => {
-        const res = await fetch(`${API.proxy}/playlist/track/all?id=${playlistId}&limit=${limit}`);
-        const json = await res.json();
-        if (!json.songs?.length) throw new Error("榜单无歌曲");
-        return json.songs.map(s => ({
+        const res = await API.fetchJson(`${API.proxy}/playlist/track/all?id=${playlistId}&limit=${limit}`);
+        if (!res.songs?.length) throw new Error("榜单无歌曲");
+        return res.songs.map(s => ({
             id: `netease_${s.id}`,
             name: s.name,
             artist: s.ar.map(a => a.name).join(' / '),
@@ -548,146 +553,7 @@ const API = {
     },
 
     // 获取封面
-    getPicUrl: (song) => song.pic_id || `${API.proxy}/song/detail?ids=${song.id.split('_')[1]}`,
-
-    // 保留原来的 fetchJson 调用方式（全部自动走新API）
-    fetchJson: async (url) => {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`请求失败 ${res.status}`);
-        return await res.json();
-    }
-};
-
-    search: async (keyword, source = "netease,kuwo", count = 20, page = 1) => {
-        // 支持同时搜索多个来源，增加搜索成功率
-        const url = `${API.baseUrl}?types=search&source=${source}&name=${encodeURIComponent(keyword)}&count=${count}&pages=${page}`;
-
-        try {
-            debugLog(`API请求: ${url}`);
-            const data = await API.fetchJson(url);
-            debugLog(`API响应: ${JSON.stringify(data).substring(0, 200)}...`);
-
-            if (!Array.isArray(data)) throw new Error("搜索结果格式错误");
-
-            return data.map(song => ({
-                // 为ID添加来源前缀，确保不同来源的歌曲ID唯一
-                id: song.source && song.id ? `${song.source}_${song.id}` : song.id,
-                name: song.name,
-                artist: Array.isArray(song.artist) ? song.artist.join(' / ') : song.artist || '',
-                album: song.album || '未知专辑',
-                pic_id: song.pic_id || '',
-                url_id: song.url_id || (song.source && song.id ? `${song.source}_${song.id}` : song.id),
-                lyric_id: song.lyric_id || (song.source && song.id ? `${song.source}_${song.id}` : song.id),
-                source: song.source || 'netease',
-            }));
-        } catch (error) {
-            debugLog(`API错误: ${error.message}`);
-            throw error;
-        }
-    },
-
-    getRadarPlaylist: async (playlistId = "3778678", options = {}) => {
-        let limit = 50;
-        let offset = 0;
-
-        if (typeof options === "number") {
-            limit = options;
-        } else if (options && typeof options === "object") {
-            if (Number.isFinite(options.limit)) {
-                limit = options.limit;
-            } else if (Number.isFinite(options.count)) {
-                limit = options.count;
-            }
-            if (Number.isFinite(options.offset)) {
-                offset = options.offset;
-            }
-        }
-
-        limit = Math.max(1, Math.min(200, Math.trunc(limit)) || 50);
-        offset = Math.max(0, Math.trunc(offset) || 0);
-
-        const params = new URLSearchParams({
-            types: "playlist",
-            id: playlistId,
-            limit: String(limit),
-            offset: String(offset),
-        });
-        const url = `${API.baseUrl}?${params.toString()}`;
-
-        try {
-            const data = await API.fetchJson(url);
-            debugLog(`雷达播放列表API响应: ${JSON.stringify(data).substring(0, 200)}...`);
-            
-            // 处理两种可能的返回格式
-            let tracks = [];
-            if (data && data.playlist && Array.isArray(data.playlist.tracks)) {
-                // 标准播放列表格式
-                tracks = data.playlist.tracks.slice(0, limit);
-            } else if (Array.isArray(data)) {
-                // 搜索结果格式
-                tracks = data.slice(0, limit);
-            }
-
-            if (tracks.length === 0) {
-                debugLog("雷达播放列表没有找到歌曲");
-                throw new Error("No tracks found");
-            }
-
-            // 统一数据格式
-            return tracks.map(track => {
-                // 检查是否是搜索结果格式
-                if (track.source) {
-                    return {
-                        id: `${track.source}_${track.id}`,
-                        name: track.name,
-                        artist: Array.isArray(track.artist) ? track.artist.join(' / ') : track.artist || '',
-                        album: track.album || '未知专辑',
-                        source: track.source,
-                        lyric_id: track.lyric_id || track.id,
-                        pic_id: track.pic_id || '',
-                    };
-                } else {
-                    // 播放列表格式
-                    return {
-                        id: `netease_${track.id}`,
-                        name: track.name,
-                        artist: Array.isArray(track.ar) ? track.ar.map(artist => artist.name).join(" / ") : "",
-                        album: track.al?.name || '未知专辑',
-                        source: "netease",
-                        lyric_id: track.id,
-                        pic_id: track.al?.pic_str || track.al?.pic || track.al?.picUrl || "",
-                    };
-                }
-            });
-        } catch (error) {
-            console.error("雷达播放列表请求失败:", error);
-            throw error;
-        }
-    },
-
-    getSongUrl: (song, quality = "320") => {
-        // 处理带来源前缀的ID
-        const songId = song.id.includes('_') ? song.id.split('_')[1] : song.id;
-        return `${API.baseUrl}?types=url&id=${songId}&source=${song.source || "netease"}&br=${quality}`;
-    },
-
-    getLyric: (song) => {
-        // 处理带来源前缀的ID
-        const lyricId = song.lyric_id && song.lyric_id.includes('_') ? song.lyric_id.split('_')[1] : (song.lyric_id || song.id);
-        const finalId = lyricId.includes('_') ? lyricId.split('_')[1] : lyricId;
-        return `${API.baseUrl}?types=lyric&id=${finalId}&source=${song.source || "netease"}`;
-    },
-
-    getPicUrl: (song) => {
-        // 处理带来源前缀的ID
-        if (!song.pic_id) {
-            // 如果没有pic_id，使用歌曲ID作为备选
-            const picId = song.id.includes('_') ? song.id.split('_')[1] : song.id;
-            return `${API.baseUrl}?types=pic&id=${picId}&source=${song.source || "netease"}&size=300`;
-        }
-        const picId = song.pic_id.includes('_') ? song.pic_id.split('_')[1] : song.pic_id;
-        return `${API.baseUrl}?types=pic&id=${picId}&source=${song.source || "netease"}&size=300`;
-    }
+    getPicUrl: (song) => song.pic_id || `${API.proxy}/song/detail?ids=${song.id.split('_')[1]}`
 };
 
 Object.freeze(API);
@@ -4139,7 +4005,6 @@ async function exploreOnlineMusic() {
         }
     } catch (error) {
         console.error("加载在线音乐失败:", error);
-        showNotification("加载在线音乐失败，请稍后重试", "error");
     } finally {
         btn.disabled = false;
         btnText.style.display = "inline-block";
