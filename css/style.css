@@ -412,7 +412,17 @@ body.background-transitioning .background-stage__layer--transition {
     justify-content: flex-end;
     align-items: center;
     gap: 8px;
-    padding-top: 12px;
+    padding: 12px 0;
+    position: sticky;
+    top: 0;
+    background: var(--component-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 10;
+    border-bottom: 1px solid var(--border-color);
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
 }
 
 .search-results-list {
